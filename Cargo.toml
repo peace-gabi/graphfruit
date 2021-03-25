@@ -1,0 +1,11 @@
+[package]
+name = "graphfruit"
+version = "0.1.0"
+authors = ["Some very cool people"]
+edition = "2018"
+
+[dependencies]
+
+[[example]]
+name = "hello_world"
+path = "./examples/e01_hello_world.rs"
