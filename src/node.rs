@@ -1,11 +1,11 @@
 use std::fmt;
 use std::fmt::{Display, Formatter};
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 /// Node in a graph.
 pub struct Node {
     id: NodeId,
-    info: Box<dyn NodeInfo>,
+    info: AnyNodeInfo,
 }
 
 impl Node {
@@ -14,10 +14,12 @@ impl Node {
     where
         I: NodeInfo,
     {
-        Self {
-            id,
-            info: Box::new(info),
-        }
+        Self::with_any_info(id, AnyNodeInfo::new(info))
+    }
+
+    /// Create a `Node` with an id and any info.
+    pub fn with_any_info(id: NodeId, info: AnyNodeInfo) -> Self {
+        Self { id, info }
     }
 
     /// Get the id of the node.
@@ -25,9 +27,46 @@ impl Node {
         self.id
     }
 
-    /// Get the type erased info.
+    /// Get a shared reference to the type erased info.
     pub fn info(&self) -> &dyn NodeInfo {
-        Box::as_ref(&self.info)
+        self.info.deref()
+    }
+
+    /// Get an exclusive reference to the type erased info.
+    pub fn info_mut(&mut self) -> &mut dyn NodeInfo {
+        self.info.deref_mut()
+    }
+
+    /// Consume the node and return its info.
+    pub fn into_info(self) -> AnyNodeInfo {
+        self.info
+    }
+}
+
+/// Type erased container for a node info.
+pub struct AnyNodeInfo(Box<dyn NodeInfo>);
+
+impl AnyNodeInfo {
+    /// Create a new `AnyNodeInfo` from  `info`.
+    pub fn new<I>(info: I) -> Self
+    where
+        I: NodeInfo,
+    {
+        Self(Box::new(info))
+    }
+}
+
+impl Deref for AnyNodeInfo {
+    type Target = dyn NodeInfo;
+
+    fn deref(&self) -> &Self::Target {
+        Box::as_ref(&self.0)
+    }
+}
+
+impl DerefMut for AnyNodeInfo {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        Box::as_mut(&mut self.0)
     }
 }
 

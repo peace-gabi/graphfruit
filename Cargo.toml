@@ -5,6 +5,7 @@ authors = ["Some very cool people"]
 edition = "2018"
 
 [dependencies]
+downcast-rs = "1.2"
 
 [[example]]
 name = "hello_world"

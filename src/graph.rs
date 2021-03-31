@@ -1,5 +1,5 @@
-use crate::node::{NodeId, Node, NodeInfo};
-use crate::relation::{RelationId, Relation, RelationInfo};
+use crate::node::{Node, NodeId, NodeInfo};
+use crate::relation::{Relation, RelationId, RelationInfo};
 
 // TODO: Implement Graph
 

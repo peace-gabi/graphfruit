@@ -1,28 +1,30 @@
 use crate::node::NodeId;
+use downcast_rs::{impl_downcast, DowncastSync};
 use std::fmt;
 use std::fmt::{Display, Formatter};
-use std::ops::Deref;
+use std::num::NonZeroU64;
+use std::ops::{Deref, DerefMut};
 
 /// Models a relation between 2 nodes in a graph.
 pub struct Relation {
     id: RelationId,
     src: NodeId,
     dst: NodeId,
-    info: Box<dyn RelationInfo>,
+    info: AnyRelationInfo,
 }
 
 impl Relation {
-    /// Create a new `Relation` with an id, source, destination and info.
+    /// Create a `Relation` with an id, source, destination and info.
     pub fn new<I>(id: RelationId, src: NodeId, dst: NodeId, info: I) -> Self
     where
         I: RelationInfo,
     {
-        Self {
-            id,
-            src,
-            dst,
-            info: Box::new(info),
-        }
+        Self::with_any_info(id, src, dst, AnyRelationInfo::new(info))
+    }
+
+    /// Create a `Relation` with an id, source, destination and any info.
+    pub fn with_any_info(id: RelationId, src: NodeId, dst: NodeId, info: AnyRelationInfo) -> Self {
+        Self { id, src, dst, info }
     }
 
     /// Get the relation id.
@@ -40,42 +42,79 @@ impl Relation {
         self.dst
     }
 
-    /// Get the type erased info.
+    /// Get a shared reference to the type erased info.
     pub fn info(&self) -> &dyn RelationInfo {
-        Box::as_ref(&self.info)
+        &*self.info
+    }
+
+    /// Get an exclusive reference to the type erased info.
+    pub fn info_mut(&mut self) -> &mut dyn RelationInfo {
+        &mut *self.info
+    }
+
+    /// Consume the relation and return its info.
+    pub fn into_info(self) -> AnyRelationInfo {
+        self.info
+    }
+}
+
+/// Type erased container for a relation info.
+pub struct AnyRelationInfo(Box<dyn RelationInfo>);
+
+impl AnyRelationInfo {
+    /// Create a new `AnyRelationInfo` from `info`.
+    pub fn new<I>(info: I) -> Self
+    where
+        I: RelationInfo,
+    {
+        AnyRelationInfo(Box::new(info))
+    }
+}
+
+impl Deref for AnyRelationInfo {
+    type Target = dyn RelationInfo;
+
+    fn deref(&self) -> &Self::Target {
+        Box::as_ref(&self.0)
+    }
+}
+
+impl DerefMut for AnyRelationInfo {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        Box::as_mut(&mut self.0)
     }
 }
 
 /// Uniquely identifies a relation within a graph.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-pub struct RelationId(u64);
+pub struct RelationId(NonZeroU64);
 
 impl RelationId {
-    /// Create a new `RelationId`.
+    /// Create a new `RelationId` with the given id.
+    /// The id must be non zero.
     pub fn new(id: u64) -> Self {
-        Self(id)
+        Self(NonZeroU64::new(id).unwrap())
     }
-}
 
-impl Deref for RelationId {
-    type Target = u64;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
+    /// Get the numeric value of the id.
+    pub fn get(&self) -> u64 {
+        self.0.get()
     }
 }
 
 impl Display for RelationId {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
+        write!(f, "{}", self.0.get())
     }
 }
 
 pub trait RelationInfo
 where
-    Self: Send + Sync + 'static,
+    Self: DowncastSync,
 {
 }
+
+impl_downcast!(sync RelationInfo);
 
 impl RelationInfo for i32 {}
 
