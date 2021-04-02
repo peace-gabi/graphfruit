@@ -19,12 +19,12 @@ impl Relation {
     where
         I: RelationInfo,
     {
-        Self::with_any_info(id, src, dst, AnyRelationInfo::new(info))
-    }
-
-    /// Create a `Relation` with an id, source, destination and any info.
-    pub fn with_any_info(id: RelationId, src: NodeId, dst: NodeId, info: AnyRelationInfo) -> Self {
-        Self { id, src, dst, info }
+        Self {
+            id,
+            src,
+            dst,
+            info: info.into(),
+        }
     }
 
     /// Get the relation id.
@@ -61,12 +61,11 @@ impl Relation {
 /// Type erased container for a relation info.
 pub struct AnyRelationInfo(Box<dyn RelationInfo>);
 
-impl AnyRelationInfo {
-    /// Create a new `AnyRelationInfo` from `info`.
-    pub fn new<I>(info: I) -> Self
-    where
-        I: RelationInfo,
-    {
+impl<I> From<I> for AnyRelationInfo
+where
+    I: RelationInfo,
+{
+    fn from(info: I) -> Self {
         AnyRelationInfo(Box::new(info))
     }
 }

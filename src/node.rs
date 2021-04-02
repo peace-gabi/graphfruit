@@ -12,14 +12,12 @@ impl Node {
     /// Create a `Node` with an id and info.
     pub fn new<I>(id: NodeId, info: I) -> Self
     where
-        I: NodeInfo,
+        I: Into<AnyNodeInfo>,
     {
-        Self::with_any_info(id, AnyNodeInfo::new(info))
-    }
-
-    /// Create a `Node` with an id and any info.
-    pub fn with_any_info(id: NodeId, info: AnyNodeInfo) -> Self {
-        Self { id, info }
+        Self {
+            id,
+            info: info.into(),
+        }
     }
 
     /// Get the id of the node.
@@ -46,12 +44,11 @@ impl Node {
 /// Type erased container for a node info.
 pub struct AnyNodeInfo(Box<dyn NodeInfo>);
 
-impl AnyNodeInfo {
-    /// Create a new `AnyNodeInfo` from  `info`.
-    pub fn new<I>(info: I) -> Self
-    where
-        I: NodeInfo,
-    {
+impl<I> From<I> for AnyNodeInfo
+where
+    I: NodeInfo,
+{
+    fn from(info: I) -> Self {
         Self(Box::new(info))
     }
 }

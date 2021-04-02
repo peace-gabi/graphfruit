@@ -1,4 +1,4 @@
-use crate::node::{AnyNodeInfo, Node, NodeId, NodeInfo};
+use crate::node::{AnyNodeInfo, Node, NodeId};
 use crate::relation::{Relation, RelationId};
 use std::collections::{HashMap, HashSet};
 
@@ -35,7 +35,7 @@ impl Graph {
 
     pub fn add_node<I>(&mut self, info: I) -> NodeId
     where
-        I: NodeInfo,
+        I: Into<AnyNodeInfo>,
     {
         let id = self.generate_node_id();
         self.in_nodes.insert(id, HashMap::new());
@@ -46,8 +46,6 @@ impl Graph {
 
     pub fn remove_node(&mut self, node_id: &NodeId) -> Option<AnyNodeInfo> {
         if self.nodes.contains_key(node_id) {
-            //in_nodes: HashMap<NodeId, HashMap<NodeId, HashSet<RelationId>>>
-            //out_nodes: HashMap<NodeId, HashMap<NodeId, HashSet<RelationId>>>
             for node in self.in_nodes[node_id].keys() {
                 if let Some(relations) = self.out_nodes.get_mut(node) {
                     relations.remove(node_id);
@@ -94,10 +92,12 @@ impl Graph {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn test_add_node() {
         let mut graph = Graph::new();
         let mut v = HashSet::new();
+
         assert_eq!(graph.nr_nodes(), 0);
         assert!(v.insert(graph.add_node(100)));
         assert_eq!(graph.nr_nodes(), 1);
@@ -111,6 +111,7 @@ mod tests {
     fn test_remove_node() {
         let mut graph = Graph::new();
         let mut v = Vec::new();
+
         for _ in 0..100 {
             v.push(graph.add_node("info".to_string()));
         }
@@ -118,6 +119,7 @@ mod tests {
             graph.remove_node(node_id);
         }
         assert_eq!(graph.nr_nodes(), 90);
+
         for node_id in &v[..10] {
             assert!(matches!(graph.remove_node(node_id), None));
         }
