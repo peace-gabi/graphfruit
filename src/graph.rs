@@ -8,6 +8,7 @@ struct RelationData {
     edges: HashSet<Edge>,
 }
 
+#[derive(Default)]
 pub struct Graph {
     in_nodes: HashMap<NodeId, HashMap<NodeId, HashSet<RelationId>>>,
     out_nodes: HashMap<NodeId, HashMap<NodeId, HashSet<RelationId>>>,
@@ -18,6 +19,7 @@ pub struct Graph {
 }
 
 impl Graph {
+    /// Create an empty `Graph`.
     pub fn new() -> Graph {
         Graph {
             in_nodes: HashMap::new(),
@@ -39,6 +41,7 @@ impl Graph {
         RelationId::new(self.rel_counter)
     }
 
+    /// Create a `Node` in the graph with `info` and return its `NodeId`.
     pub fn add_node<I>(&mut self, info: I) -> NodeId
     where
         I: Into<AnyNodeInfo>,
@@ -50,6 +53,7 @@ impl Graph {
         id
     }
 
+    /// Remove the `Node` at `node_id` and return its info if it was removed.
     pub fn remove_node(&mut self, node_id: NodeId) -> Option<AnyNodeInfo> {
         if !self.nodes.contains_key(&node_id) {
             return None;
@@ -84,7 +88,11 @@ impl Graph {
         self.nodes.remove(&node_id).map(|n| n.into_info())
     }
 
-    fn add_relation(&mut self, info: AnyRelationInfo) -> RelationId {
+    /// Create a `Relation` in the graph with `info` and return its `RelationId`.
+    pub fn add_relation<I>(&mut self, info: I) -> RelationId
+    where
+        I: Into<AnyRelationInfo>,
+    {
         let relation_id = self.generate_rel_id();
 
         self.relation_data.insert(
@@ -98,7 +106,8 @@ impl Graph {
         relation_id
     }
 
-    fn remove_relation(&mut self, relation_id: RelationId) -> Option<AnyRelationInfo> {
+    /// Remove the `Relation` at `relation_id` and return its info if it was removed.
+    pub fn remove_relation(&mut self, relation_id: RelationId) -> Option<AnyRelationInfo> {
         let relation_data = self.relation_data.remove(&relation_id)?;
 
         for edge in &relation_data.edges {
@@ -116,7 +125,8 @@ impl Graph {
         Some(relation_data.relation.into_info())
     }
 
-    fn connect(&mut self, src: NodeId, dst: NodeId, relation_id: RelationId) -> Result<(), ()> {
+    /// Connect two `Nodes` in the graph with a `Relation`.
+    pub fn connect(&mut self, src: NodeId, dst: NodeId, relation_id: RelationId) -> Result<(), ()> {
         if !self.nodes.contains_key(&src) {
             return Err(());
         }
@@ -152,7 +162,13 @@ impl Graph {
         Ok(())
     }
 
-    fn disconnect(&mut self, src: NodeId, dst: NodeId, relation_id: RelationId) -> Result<(), ()> {
+    /// Disconnect the `Relation` between two `Nodes`.
+    pub fn disconnect(
+        &mut self,
+        src: NodeId,
+        dst: NodeId,
+        relation_id: RelationId,
+    ) -> Result<(), ()> {
         if !self.nodes.contains_key(&src) {
             return Err(());
         }
@@ -188,14 +204,17 @@ impl Graph {
         Ok(())
     }
 
+    /// Get the number of `Nodes` in the graph.
     pub fn nr_nodes(&self) -> usize {
         self.nodes.len()
     }
 
+    /// Get the number of `Relations` in the graph.
     pub fn nr_relations(&self) -> usize {
         self.relation_data.len()
     }
 
+    /// Get the in degree of a `Node`.
     pub fn in_degree(&self, node_id: NodeId) -> Option<usize> {
         if self.in_nodes.contains_key(&node_id) {
             Some(self.in_nodes[&node_id].len())
@@ -204,6 +223,7 @@ impl Graph {
         }
     }
 
+    /// Get the out degree of a `Node`.
     pub fn out_degree(&self, node_id: NodeId) -> Option<usize> {
         if self.out_nodes.contains_key(&node_id) {
             Some(self.out_nodes[&node_id].len())
@@ -212,14 +232,17 @@ impl Graph {
         }
     }
 
+    /// Get an iterator over all `Nodes` in the graph.
     pub fn iter_nodes(&self) -> impl Iterator<Item = &Node> {
         self.nodes.values()
     }
 
+    /// Get an iterator over all `Relations` in the graph.
     pub fn iter_relations(&self) -> impl Iterator<Item = &Relation> {
         self.relation_data.values().map(|r| &r.relation)
     }
 
+    /// Get an iterator over all edges with `relation_id`.
     pub fn iter_relation_edges(
         &self,
         relation_id: RelationId,
