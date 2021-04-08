@@ -1,3 +1,4 @@
+use downcast_rs::{impl_downcast, DowncastSync};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::ops::{Deref, DerefMut};
@@ -92,11 +93,16 @@ impl Display for NodeId {
     }
 }
 
+/// Trait implemented by types which can be stored in `Nodes`.
 pub trait NodeInfo
 where
-    Self: Send + Sync + 'static,
+    Self: DowncastSync,
 {
 }
+
+impl_downcast!(sync NodeInfo);
+
+impl NodeInfo for () {}
 
 impl NodeInfo for i32 {}
 

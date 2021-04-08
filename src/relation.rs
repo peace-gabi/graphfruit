@@ -1,28 +1,23 @@
-use crate::node::NodeId;
 use downcast_rs::{impl_downcast, DowncastSync};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::num::NonZeroU64;
 use std::ops::{Deref, DerefMut};
 
-/// Models a relation between 2 nodes in a graph.
+/// Models a relation between nodes in a graph.
 pub struct Relation {
     id: RelationId,
-    src: NodeId,
-    dst: NodeId,
     info: AnyRelationInfo,
 }
 
 impl Relation {
-    /// Create a `Relation` with an id, source, destination and info.
-    pub fn new<I>(id: RelationId, src: NodeId, dst: NodeId, info: I) -> Self
+    /// Create a `Relation` with an id, and info.
+    pub fn new<I>(id: RelationId, info: I) -> Self
     where
-        I: RelationInfo,
+        I: Into<AnyRelationInfo>,
     {
         Self {
             id,
-            src,
-            dst,
             info: info.into(),
         }
     }
@@ -30,16 +25,6 @@ impl Relation {
     /// Get the relation id.
     pub fn id(&self) -> RelationId {
         self.id
-    }
-
-    /// Get the source node id.
-    pub fn src(&self) -> NodeId {
-        self.src
-    }
-
-    /// Get the destination node id.
-    pub fn dst(&self) -> NodeId {
-        self.dst
     }
 
     /// Get a shared reference to the type erased info.
@@ -107,6 +92,7 @@ impl Display for RelationId {
     }
 }
 
+/// Trait implemented by types which can be stored in `Relations`.
 pub trait RelationInfo
 where
     Self: DowncastSync,
