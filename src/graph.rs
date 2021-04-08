@@ -87,6 +87,14 @@ impl Graph {
             None
         }
     }
+
+    pub fn iter_nodes(&self) -> impl Iterator<Item = &Node>  {
+        self.nodes.values()
+    }
+
+    pub fn iter_relations(&self) -> impl Iterator<Item = &Relation> {
+        self.relations.values()
+    }
 }
 
 #[cfg(test)]
