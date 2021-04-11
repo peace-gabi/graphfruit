@@ -1,4 +1,5 @@
 use crate::edge::Edge;
+use crate::errors::ConnectError;
 use crate::node::{AnyNodeInfo, Node, NodeId};
 use crate::relation::{AnyRelationInfo, Relation, RelationId};
 use std::collections::{HashMap, HashSet};
@@ -126,38 +127,30 @@ impl Graph {
     }
 
     /// Connect two `Nodes` in the graph with a `Relation`.
-    pub fn connect(&mut self, src: NodeId, dst: NodeId, relation_id: RelationId) -> Result<(), ()> {
-        if !self.nodes.contains_key(&src) {
-            return Err(());
-        }
-
-        if !self.nodes.contains_key(&dst) {
-            return Err(());
-        }
-
-        if !self.relation_data.contains_key(&relation_id) {
-            return Err(());
-        }
-
-        self.in_nodes
+    pub fn connect(
+        &mut self,
+        src: NodeId,
+        dst: NodeId,
+        relation_id: RelationId,
+    ) -> Result<(), ConnectError> {
+        let in_nodes = self
+            .in_nodes
             .get_mut(&src)
-            .unwrap()
-            .entry(dst)
-            .or_default()
-            .insert(relation_id);
+            .ok_or(ConnectError::InvalidSrcNodeId)?;
 
-        self.out_nodes
+        let out_nodes = self
+            .out_nodes
             .get_mut(&dst)
-            .unwrap()
-            .entry(src)
-            .or_default()
-            .insert(relation_id);
+            .ok_or(ConnectError::InvalidDstNodeId)?;
 
-        self.relation_data
+        let relation_data = self
+            .relation_data
             .get_mut(&relation_id)
-            .unwrap()
-            .edges
-            .insert(Edge::new(src, dst));
+            .ok_or(ConnectError::InvalidRelationId)?;
+
+        in_nodes.entry(dst).or_default().insert(relation_id);
+        out_nodes.entry(src).or_default().insert(relation_id);
+        relation_data.edges.insert(Edge::new(src, dst));
 
         Ok(())
     }
@@ -168,38 +161,25 @@ impl Graph {
         src: NodeId,
         dst: NodeId,
         relation_id: RelationId,
-    ) -> Result<(), ()> {
-        if !self.nodes.contains_key(&src) {
-            return Err(());
-        }
-
-        if !self.nodes.contains_key(&dst) {
-            return Err(());
-        }
-
-        if !self.relation_data.contains_key(&relation_id) {
-            return Err(());
-        }
-
-        self.in_nodes
+    ) -> Result<(), ConnectError> {
+        let in_nodes = self
+            .in_nodes
             .get_mut(&src)
-            .unwrap()
-            .get_mut(&dst)
-            .unwrap()
-            .remove(&relation_id);
+            .ok_or(ConnectError::InvalidSrcNodeId)?;
 
-        self.out_nodes
+        let out_nodes = self
+            .out_nodes
             .get_mut(&dst)
-            .unwrap()
-            .get_mut(&src)
-            .unwrap()
-            .remove(&relation_id);
+            .ok_or(ConnectError::InvalidDstNodeId)?;
 
-        self.relation_data
+        let relation_data = self
+            .relation_data
             .get_mut(&relation_id)
-            .unwrap()
-            .edges
-            .remove(&Edge::new(src, dst));
+            .ok_or(ConnectError::InvalidRelationId)?;
+
+        in_nodes.get_mut(&dst).unwrap().remove(&relation_id);
+        out_nodes.get_mut(&src).unwrap().remove(&relation_id);
+        relation_data.edges.remove(&Edge::new(src, dst));
 
         Ok(())
     }
