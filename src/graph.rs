@@ -1,20 +1,15 @@
 use crate::edge::Edge;
 use crate::errors::ConnectError;
-use crate::node::{AnyNodeInfo, Node, NodeId};
+use crate::node::{AnyNodeInfo, NodeId};
 use crate::relation::{AnyRelationInfo, Relation, RelationId};
 use std::collections::{HashMap, HashSet};
-
-struct RelationData {
-    relation: Relation,
-    edges: HashSet<Edge>,
-}
 
 #[derive(Default)]
 pub struct Graph {
     in_nodes: HashMap<NodeId, HashMap<NodeId, HashSet<RelationId>>>,
     out_nodes: HashMap<NodeId, HashMap<NodeId, HashSet<RelationId>>>,
-    nodes: HashMap<NodeId, Node>,
-    relation_data: HashMap<RelationId, RelationData>,
+    node_info: HashMap<NodeId, AnyNodeInfo>,
+    relations: HashMap<RelationId, Relation>,
     node_counter: u64,
     rel_counter: u64,
 }
@@ -25,8 +20,8 @@ impl Graph {
         Graph {
             in_nodes: HashMap::new(),
             out_nodes: HashMap::new(),
-            nodes: HashMap::new(),
-            relation_data: HashMap::new(),
+            node_info: HashMap::new(),
+            relations: HashMap::new(),
             node_counter: 0,
             rel_counter: 0,
         }
@@ -50,15 +45,13 @@ impl Graph {
         let id = self.generate_node_id();
         self.in_nodes.insert(id, HashMap::new());
         self.out_nodes.insert(id, HashMap::new());
-        self.nodes.insert(id, Node::new(id, info));
+        self.node_info.insert(id, info.into());
         id
     }
 
     /// Remove the `Node` at `node_id` and return its info if it was removed.
     pub fn remove_node(&mut self, node_id: NodeId) -> Option<AnyNodeInfo> {
-        if !self.nodes.contains_key(&node_id) {
-            return None;
-        }
+        let info = self.node_info.remove(&node_id)?;
 
         for src_id in self.in_nodes[&node_id].keys() {
             // Get all ids of relations with node as source
@@ -66,10 +59,9 @@ impl Graph {
 
             // Remove the edge from all relations
             for relation_id in &relation_ids {
-                self.relation_data
+                self.relations
                     .get_mut(relation_id)?
-                    .edges
-                    .remove(&Edge::new(*src_id, node_id));
+                    .remove_edge(&Edge::new(*src_id, node_id));
             }
         }
 
@@ -79,14 +71,13 @@ impl Graph {
 
             // Remove the edge from all relations
             for relation_id in &relation_ids {
-                self.relation_data
+                self.relations
                     .get_mut(relation_id)?
-                    .edges
-                    .remove(&Edge::new(node_id, *dst_id));
+                    .remove_edge(&Edge::new(node_id, *dst_id));
             }
         }
 
-        self.nodes.remove(&node_id).map(|n| n.into_info())
+        Some(info)
     }
 
     /// Create a `Relation` in the graph with `info` and return its `RelationId`.
@@ -95,23 +86,15 @@ impl Graph {
         I: Into<AnyRelationInfo>,
     {
         let relation_id = self.generate_rel_id();
-
-        self.relation_data.insert(
-            relation_id,
-            RelationData {
-                relation: Relation::new(relation_id, info),
-                edges: HashSet::new(),
-            },
-        );
-
+        self.relations.insert(relation_id, Relation::new(info));
         relation_id
     }
 
     /// Remove the `Relation` at `relation_id` and return its info if it was removed.
     pub fn remove_relation(&mut self, relation_id: RelationId) -> Option<AnyRelationInfo> {
-        let relation_data = self.relation_data.remove(&relation_id)?;
+        let relation = self.relations.remove(&relation_id)?;
 
-        for edge in &relation_data.edges {
+        for edge in relation.iter_edges() {
             self.in_nodes
                 .get_mut(&edge.dst())?
                 .get_mut(&edge.src())?
@@ -123,7 +106,7 @@ impl Graph {
                 .remove(&relation_id);
         }
 
-        Some(relation_data.relation.into_info())
+        Some(relation.into_info())
     }
 
     /// Connect two `Nodes` in the graph with a `Relation`.
@@ -144,13 +127,13 @@ impl Graph {
             .ok_or(ConnectError::InvalidDstNodeId)?;
 
         let relation_data = self
-            .relation_data
+            .relations
             .get_mut(&relation_id)
             .ok_or(ConnectError::InvalidRelationId)?;
 
         in_nodes.entry(dst).or_default().insert(relation_id);
         out_nodes.entry(src).or_default().insert(relation_id);
-        relation_data.edges.insert(Edge::new(src, dst));
+        relation_data.insert_edge(Edge::new(src, dst));
 
         Ok(())
     }
@@ -173,25 +156,25 @@ impl Graph {
             .ok_or(ConnectError::InvalidDstNodeId)?;
 
         let relation_data = self
-            .relation_data
+            .relations
             .get_mut(&relation_id)
             .ok_or(ConnectError::InvalidRelationId)?;
 
         in_nodes.get_mut(&dst).unwrap().remove(&relation_id);
         out_nodes.get_mut(&src).unwrap().remove(&relation_id);
-        relation_data.edges.remove(&Edge::new(src, dst));
+        relation_data.remove_edge(&Edge::new(src, dst));
 
         Ok(())
     }
 
     /// Get the number of `Nodes` in the graph.
     pub fn nr_nodes(&self) -> usize {
-        self.nodes.len()
+        self.node_info.len()
     }
 
     /// Get the number of `Relations` in the graph.
     pub fn nr_relations(&self) -> usize {
-        self.relation_data.len()
+        self.relations.len()
     }
 
     /// Get the in degree of a `Node`.
@@ -213,13 +196,13 @@ impl Graph {
     }
 
     /// Get an iterator over all `Nodes` in the graph.
-    pub fn iter_nodes(&self) -> impl Iterator<Item = &Node> {
-        self.nodes.values()
+    pub fn iter_nodes(&self) -> impl Iterator<Item = &AnyNodeInfo> {
+        self.node_info.values()
     }
 
-    /// Get an iterator over all `Relations` in the graph.
-    pub fn iter_relations(&self) -> impl Iterator<Item = &Relation> {
-        self.relation_data.values().map(|r| &r.relation)
+    /// Get an iterator over all `RelationIds` and `Relations` in the graph.
+    pub fn iter_relations(&self) -> impl Iterator<Item = (RelationId, &Relation)> {
+        self.relations.iter().map(|(k, v)| (*k, v))
     }
 
     /// Get an iterator over all edges with `relation_id`.
@@ -227,7 +210,7 @@ impl Graph {
         &self,
         relation_id: RelationId,
     ) -> Option<impl Iterator<Item = &Edge>> {
-        self.relation_data.get(&relation_id).map(|r| r.edges.iter())
+        self.relations.get(&relation_id).map(|r| r.iter_edges())
     }
 }
 

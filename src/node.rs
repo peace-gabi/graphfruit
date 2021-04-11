@@ -3,45 +3,6 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::ops::{Deref, DerefMut};
 
-/// Node in a graph.
-pub struct Node {
-    id: NodeId,
-    info: AnyNodeInfo,
-}
-
-impl Node {
-    /// Create a `Node` with an id and info.
-    pub fn new<I>(id: NodeId, info: I) -> Self
-    where
-        I: Into<AnyNodeInfo>,
-    {
-        Self {
-            id,
-            info: info.into(),
-        }
-    }
-
-    /// Get the id of the node.
-    pub fn id(&self) -> NodeId {
-        self.id
-    }
-
-    /// Get a shared reference to the type erased info.
-    pub fn info(&self) -> &dyn NodeInfo {
-        self.info.deref()
-    }
-
-    /// Get an exclusive reference to the type erased info.
-    pub fn info_mut(&mut self) -> &mut dyn NodeInfo {
-        self.info.deref_mut()
-    }
-
-    /// Consume the node and return its info.
-    pub fn into_info(self) -> AnyNodeInfo {
-        self.info
-    }
-}
-
 /// Type erased container for a node info.
 pub struct AnyNodeInfo(Box<dyn NodeInfo>);
 
