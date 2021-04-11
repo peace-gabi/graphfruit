@@ -177,21 +177,13 @@ impl Graph {
     }
 
     /// Get the in degree of a `Node`.
-    pub fn in_degree(&self, node_id: NodeId) -> Option<usize> {
-        if self.in_nodes.contains_key(&node_id) {
-            Some(self.in_nodes[&node_id].len())
-        } else {
-            None
-        }
+    pub fn in_degree_of(&self, node_id: NodeId) -> Option<usize> {
+        self.in_nodes.get(&node_id).map(|n| n.len())
     }
 
     /// Get the out degree of a `Node`.
-    pub fn out_degree(&self, node_id: NodeId) -> Option<usize> {
-        if self.out_nodes.contains_key(&node_id) {
-            Some(self.out_nodes[&node_id].len())
-        } else {
-            None
-        }
+    pub fn out_degree_od(&self, node_id: NodeId) -> Option<usize> {
+        self.out_nodes.get(&node_id).map(|n| n.len())
     }
 
     /// Get an iterator over all `Nodes` in the graph.
