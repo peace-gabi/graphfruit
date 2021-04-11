@@ -1,5 +1,6 @@
 use crate::edge::Edge;
 use crate::errors::ConnectError;
+use crate::id::IdGenerator;
 use crate::node::{AnyNodeInfo, NodeId};
 use crate::relation::{AnyRelationInfo, Relation, RelationId};
 use std::collections::{HashMap, HashSet};
@@ -10,8 +11,8 @@ pub struct Graph {
     out_nodes: HashMap<NodeId, HashMap<NodeId, HashSet<RelationId>>>,
     node_info: HashMap<NodeId, AnyNodeInfo>,
     relations: HashMap<RelationId, Relation>,
-    node_counter: u64,
-    rel_counter: u64,
+    node_id_generator: IdGenerator,
+    relation_id_generator: IdGenerator,
 }
 
 impl Graph {
@@ -22,19 +23,17 @@ impl Graph {
             out_nodes: HashMap::new(),
             node_info: HashMap::new(),
             relations: HashMap::new(),
-            node_counter: 0,
-            rel_counter: 0,
+            node_id_generator: IdGenerator::default(),
+            relation_id_generator: IdGenerator::default(),
         }
     }
 
     fn generate_node_id(&mut self) -> NodeId {
-        self.node_counter += 1;
-        NodeId::new(self.node_counter)
+        NodeId::new(self.node_id_generator.generate_id_sync())
     }
 
-    fn generate_rel_id(&mut self) -> RelationId {
-        self.rel_counter += 1;
-        RelationId::new(self.rel_counter)
+    fn generate_relation_id(&mut self) -> RelationId {
+        RelationId::new(self.relation_id_generator.generate_id_sync())
     }
 
     /// Create a `Node` in the graph with `info` and return its `NodeId`.
@@ -85,9 +84,9 @@ impl Graph {
     where
         I: Into<AnyRelationInfo>,
     {
-        let relation_id = self.generate_rel_id();
-        self.relations.insert(relation_id, Relation::new(info));
-        relation_id
+        let id = self.generate_relation_id();
+        self.relations.insert(id, Relation::new(info));
+        id
     }
 
     /// Remove the `Relation` at `relation_id` and return its info if it was removed.
