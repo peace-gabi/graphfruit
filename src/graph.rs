@@ -111,7 +111,7 @@ impl Graph {
         src: NodeId,
         dst: NodeId,
         relation_id: RelationId,
-    ) -> Result<(), ConnectError> {
+    ) -> Result<bool, ConnectError> {
         let in_nodes = self
             .prev_nodes
             .get_mut(&dst)
@@ -129,9 +129,7 @@ impl Graph {
 
         in_nodes.entry(src).or_default().insert(relation_id);
         out_nodes.entry(dst).or_default().insert(relation_id);
-        relations.insert_edge(Edge::new(src, dst));
-
-        Ok(())
+        Ok(relations.insert_edge(Edge::new(src, dst)))
     }
 
     /// Disconnect the `Relation` between two `Nodes`.
