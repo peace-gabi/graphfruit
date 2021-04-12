@@ -1,4 +1,3 @@
-// Used for integration testing. Don't touch this for now :)
 use graphfruit::errors::ConnectError;
 use graphfruit::graph::Graph;
 use std::collections::HashSet;
