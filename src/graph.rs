@@ -63,7 +63,7 @@ impl Graph {
                     .remove_edge(&Edge::new(*src_id, node_id));
             }
         }
-
+        self.in_nodes.remove(&node_id)?;
         for dst_id in self.out_nodes[&node_id].keys() {
             // Get all ids of relations with node as destination
             let relation_ids = self.in_nodes.get_mut(dst_id)?.remove(&node_id)?;
@@ -75,7 +75,7 @@ impl Graph {
                     .remove_edge(&Edge::new(node_id, *dst_id));
             }
         }
-
+        self.out_nodes.remove(&node_id)?;
         Some(info)
     }
 
@@ -143,7 +143,7 @@ impl Graph {
         src: NodeId,
         dst: NodeId,
         relation_id: RelationId,
-    ) -> Result<(), ConnectError> {
+    ) -> Result<bool, ConnectError> {
         let in_nodes = self
             .in_nodes
             .get_mut(&src)
@@ -159,11 +159,13 @@ impl Graph {
             .get_mut(&relation_id)
             .ok_or(ConnectError::InvalidRelationId)?;
 
-        in_nodes.get_mut(&dst).unwrap().remove(&relation_id);
-        out_nodes.get_mut(&src).unwrap().remove(&relation_id);
-        relation_data.remove_edge(&Edge::new(src, dst));
-
-        Ok(())
+        if relation_data.remove_edge(&Edge::new(src, dst)) {
+            in_nodes.get_mut(&dst).unwrap().remove(&relation_id);
+            out_nodes.get_mut(&src).unwrap().remove(&relation_id);
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 
     /// Get the number of `Nodes` in the graph.
@@ -182,7 +184,7 @@ impl Graph {
     }
 
     /// Get the out degree of a `Node`.
-    pub fn out_degree_od(&self, node_id: NodeId) -> Option<usize> {
+    pub fn out_degree_of(&self, node_id: NodeId) -> Option<usize> {
         self.out_nodes.get(&node_id).map(|n| n.len())
     }
 
@@ -202,46 +204,5 @@ impl Graph {
         relation_id: RelationId,
     ) -> Option<impl Iterator<Item = &Edge>> {
         self.relations.get(&relation_id).map(|r| r.iter_edges())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_add_node() {
-        let mut graph = Graph::new();
-        let mut v = HashSet::new();
-
-        assert_eq!(graph.nr_nodes(), 0);
-        assert!(v.insert(graph.add_node(100)));
-        assert_eq!(graph.nr_nodes(), 1);
-        assert!(v.insert(graph.add_node("lmao".to_string())));
-        assert_eq!(graph.nr_nodes(), 2);
-        assert!(v.insert(graph.add_node(235)));
-        assert_eq!(graph.nr_nodes(), 3);
-    }
-
-    #[test]
-    fn test_remove_node() {
-        let mut graph = Graph::new();
-        let mut v = Vec::new();
-
-        for _ in 0..100 {
-            v.push(graph.add_node("info".to_string()));
-        }
-        for &node_id in &v[..10] {
-            graph.remove_node(node_id);
-        }
-        assert_eq!(graph.nr_nodes(), 90);
-
-        for &node_id in &v[..10] {
-            assert!(matches!(graph.remove_node(node_id), None));
-        }
-        for &node_id in &v[10..] {
-            assert!(graph.remove_node(node_id).is_some());
-        }
-        assert_eq!(graph.nr_nodes(), 0);
     }
 }
