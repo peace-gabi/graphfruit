@@ -63,7 +63,9 @@ impl Graph {
                     .remove_edge(&Edge::new(*src_id, node_id));
             }
         }
+
         self.in_nodes.remove(&node_id)?;
+
         for dst_id in self.out_nodes[&node_id].keys() {
             // Get all ids of relations with node as destination
             let relation_ids = self.in_nodes.get_mut(dst_id)?.remove(&node_id)?;
@@ -75,7 +77,9 @@ impl Graph {
                     .remove_edge(&Edge::new(node_id, *dst_id));
             }
         }
+
         self.out_nodes.remove(&node_id)?;
+
         Some(info)
     }
 
@@ -95,13 +99,17 @@ impl Graph {
 
         for edge in relation.iter_edges() {
             self.in_nodes
-                .get_mut(&edge.dst())?
-                .get_mut(&edge.src())?
+                .get_mut(&edge.dst())
+                .unwrap()
+                .get_mut(&edge.src())
+                .unwrap()
                 .remove(&relation_id);
 
             self.out_nodes
-                .get_mut(&edge.src())?
-                .get_mut(&edge.dst())?
+                .get_mut(&edge.src())
+                .unwrap()
+                .get_mut(&edge.dst())
+                .unwrap()
                 .remove(&relation_id);
         }
 
@@ -117,22 +125,22 @@ impl Graph {
     ) -> Result<(), ConnectError> {
         let in_nodes = self
             .in_nodes
-            .get_mut(&src)
-            .ok_or(ConnectError::InvalidSrcNodeId)?;
-
-        let out_nodes = self
-            .out_nodes
             .get_mut(&dst)
             .ok_or(ConnectError::InvalidDstNodeId)?;
 
-        let relation_data = self
+        let out_nodes = self
+            .out_nodes
+            .get_mut(&src)
+            .ok_or(ConnectError::InvalidSrcNodeId)?;
+
+        let relations = self
             .relations
             .get_mut(&relation_id)
             .ok_or(ConnectError::InvalidRelationId)?;
 
-        in_nodes.entry(dst).or_default().insert(relation_id);
-        out_nodes.entry(src).or_default().insert(relation_id);
-        relation_data.insert_edge(Edge::new(src, dst));
+        in_nodes.entry(src).or_default().insert(relation_id);
+        out_nodes.entry(dst).or_default().insert(relation_id);
+        relations.insert_edge(Edge::new(src, dst));
 
         Ok(())
     }
@@ -146,13 +154,13 @@ impl Graph {
     ) -> Result<bool, ConnectError> {
         let in_nodes = self
             .in_nodes
-            .get_mut(&src)
-            .ok_or(ConnectError::InvalidSrcNodeId)?;
+            .get_mut(&dst)
+            .ok_or(ConnectError::InvalidDstNodeId)?;
 
         let out_nodes = self
             .out_nodes
-            .get_mut(&dst)
-            .ok_or(ConnectError::InvalidDstNodeId)?;
+            .get_mut(&src)
+            .ok_or(ConnectError::InvalidSrcNodeId)?;
 
         let relation_data = self
             .relations
@@ -160,8 +168,8 @@ impl Graph {
             .ok_or(ConnectError::InvalidRelationId)?;
 
         if relation_data.remove_edge(&Edge::new(src, dst)) {
-            in_nodes.get_mut(&dst).unwrap().remove(&relation_id);
-            out_nodes.get_mut(&src).unwrap().remove(&relation_id);
+            in_nodes.get_mut(&src).unwrap().remove(&relation_id);
+            out_nodes.get_mut(&dst).unwrap().remove(&relation_id);
             Ok(true)
         } else {
             Ok(false)
@@ -180,12 +188,25 @@ impl Graph {
 
     /// Get the in degree of a `Node`.
     pub fn in_degree_of(&self, node_id: NodeId) -> Option<usize> {
-        self.in_nodes.get(&node_id).map(|n| n.len())
+        // Some(self.in_nodes.get(&node_id)?.values().map(|r| r.len()).sum())
+        println!("UHH");
+        for relations in self.in_nodes.get(&node_id)?.values() {
+            println!("H: {}", relations.len())
+        }
+
+        // todo!()
+        Some(0)
     }
 
     /// Get the out degree of a `Node`.
     pub fn out_degree_of(&self, node_id: NodeId) -> Option<usize> {
-        self.out_nodes.get(&node_id).map(|n| n.len())
+        Some(
+            self.out_nodes
+                .get(&node_id)?
+                .values()
+                .map(|r| r.len())
+                .sum(),
+        )
     }
 
     /// Get an iterator over all `Nodes` in the graph.
