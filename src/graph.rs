@@ -7,8 +7,8 @@ use std::collections::{HashMap, HashSet};
 
 #[derive(Default)]
 pub struct Graph {
-    in_nodes: HashMap<NodeId, HashMap<NodeId, HashSet<RelationId>>>,
-    out_nodes: HashMap<NodeId, HashMap<NodeId, HashSet<RelationId>>>,
+    next_nodes: HashMap<NodeId, HashMap<NodeId, HashSet<RelationId>>>,
+    prev_nodes: HashMap<NodeId, HashMap<NodeId, HashSet<RelationId>>>,
     node_info: HashMap<NodeId, AnyNodeInfo>,
     relations: HashMap<RelationId, Relation>,
     node_id_generator: IdGenerator,
@@ -18,14 +18,7 @@ pub struct Graph {
 impl Graph {
     /// Create an empty `Graph`.
     pub fn new() -> Graph {
-        Graph {
-            in_nodes: HashMap::new(),
-            out_nodes: HashMap::new(),
-            node_info: HashMap::new(),
-            relations: HashMap::new(),
-            node_id_generator: IdGenerator::default(),
-            relation_id_generator: IdGenerator::default(),
-        }
+        Self::default()
     }
 
     fn generate_node_id(&mut self) -> NodeId {
@@ -42,8 +35,8 @@ impl Graph {
         I: Into<AnyNodeInfo>,
     {
         let id = self.generate_node_id();
-        self.in_nodes.insert(id, HashMap::new());
-        self.out_nodes.insert(id, HashMap::new());
+        self.next_nodes.insert(id, HashMap::new());
+        self.prev_nodes.insert(id, HashMap::new());
         self.node_info.insert(id, info.into());
         id
     }
@@ -52,9 +45,11 @@ impl Graph {
     pub fn remove_node(&mut self, node_id: NodeId) -> Option<AnyNodeInfo> {
         let info = self.node_info.remove(&node_id)?;
 
-        for src_id in self.in_nodes[&node_id].keys() {
+        let prev_nodes = self.prev_nodes.remove(&node_id).unwrap();
+
+        for src_id in prev_nodes.keys() {
             // Get all ids of relations with node as source
-            let relation_ids = self.out_nodes.get_mut(src_id)?.remove(&node_id)?;
+            let relation_ids = self.next_nodes.get_mut(src_id)?.remove(&node_id)?;
 
             // Remove the edge from all relations
             for relation_id in &relation_ids {
@@ -64,11 +59,11 @@ impl Graph {
             }
         }
 
-        self.in_nodes.remove(&node_id)?;
+        let next_nodes = self.next_nodes.remove(&node_id).unwrap();
 
-        for dst_id in self.out_nodes[&node_id].keys() {
+        for dst_id in next_nodes.keys() {
             // Get all ids of relations with node as destination
-            let relation_ids = self.in_nodes.get_mut(dst_id)?.remove(&node_id)?;
+            let relation_ids = self.prev_nodes.get_mut(dst_id)?.remove(&node_id)?;
 
             // Remove the edge from all relations
             for relation_id in &relation_ids {
@@ -77,8 +72,6 @@ impl Graph {
                     .remove_edge(&Edge::new(node_id, *dst_id));
             }
         }
-
-        self.out_nodes.remove(&node_id)?;
 
         Some(info)
     }
@@ -98,18 +91,14 @@ impl Graph {
         let relation = self.relations.remove(&relation_id)?;
 
         for edge in relation.iter_edges() {
-            self.in_nodes
-                .get_mut(&edge.dst())
-                .unwrap()
-                .get_mut(&edge.src())
-                .unwrap()
+            self.prev_nodes
+                .get_mut(&edge.dst())?
+                .get_mut(&edge.src())?
                 .remove(&relation_id);
 
-            self.out_nodes
-                .get_mut(&edge.src())
-                .unwrap()
-                .get_mut(&edge.dst())
-                .unwrap()
+            self.next_nodes
+                .get_mut(&edge.src())?
+                .get_mut(&edge.dst())?
                 .remove(&relation_id);
         }
 
@@ -124,12 +113,12 @@ impl Graph {
         relation_id: RelationId,
     ) -> Result<(), ConnectError> {
         let in_nodes = self
-            .in_nodes
+            .prev_nodes
             .get_mut(&dst)
             .ok_or(ConnectError::InvalidDstNodeId)?;
 
         let out_nodes = self
-            .out_nodes
+            .next_nodes
             .get_mut(&src)
             .ok_or(ConnectError::InvalidSrcNodeId)?;
 
@@ -153,12 +142,12 @@ impl Graph {
         relation_id: RelationId,
     ) -> Result<bool, ConnectError> {
         let in_nodes = self
-            .in_nodes
+            .prev_nodes
             .get_mut(&dst)
             .ok_or(ConnectError::InvalidDstNodeId)?;
 
         let out_nodes = self
-            .out_nodes
+            .next_nodes
             .get_mut(&src)
             .ok_or(ConnectError::InvalidSrcNodeId)?;
 
@@ -188,13 +177,19 @@ impl Graph {
 
     /// Get the in degree of a `Node`.
     pub fn in_degree_of(&self, node_id: NodeId) -> Option<usize> {
-        Some(self.in_nodes.get(&node_id)?.values().map(|r| r.len()).sum())
+        Some(
+            self.prev_nodes
+                .get(&node_id)?
+                .values()
+                .map(|r| r.len())
+                .sum(),
+        )
     }
 
     /// Get the out degree of a `Node`.
     pub fn out_degree_of(&self, node_id: NodeId) -> Option<usize> {
         Some(
-            self.out_nodes
+            self.next_nodes
                 .get(&node_id)?
                 .values()
                 .map(|r| r.len())
