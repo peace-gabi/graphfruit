@@ -188,14 +188,7 @@ impl Graph {
 
     /// Get the in degree of a `Node`.
     pub fn in_degree_of(&self, node_id: NodeId) -> Option<usize> {
-        // Some(self.in_nodes.get(&node_id)?.values().map(|r| r.len()).sum())
-        println!("UHH");
-        for relations in self.in_nodes.get(&node_id)?.values() {
-            println!("H: {}", relations.len())
-        }
-
-        // todo!()
-        Some(0)
+        Some(self.in_nodes.get(&node_id)?.values().map(|r| r.len()).sum())
     }
 
     /// Get the out degree of a `Node`.
